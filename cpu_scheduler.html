@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPU Scheduling Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2330;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.15);
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --accent: #58a6ff;
+  --accent2: #3fb950;
+  --accent3: #f78166;
+  --accent4: #d2a8ff;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface);
+}
+.header-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent4));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.header p { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+.badge {
+  margin-left: auto;
+  background: rgba(88,166,255,0.1);
+  border: 1px solid rgba(88,166,255,0.25);
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; }
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.panel-body { padding: 16px; }
+label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; font-family: var(--mono); }
+select, input[type=number] {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color .15s;
+}
+select:focus, input[type=number]:focus { border-color: var(--accent); }
+.form-row { margin-bottom: 14px; }
+.quantum-row { display: none; }
+.prio-note { display: none; font-size: 11px; color: var(--accent4); font-family: var(--mono); margin-top: 6px; }
+.proc-table-wrap { overflow-x: auto; margin: 12px 0; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+th { text-align: left; padding: 8px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 400; white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+td input[type=number] { width: 60px; padding: 4px 6px; font-size: 12px; }
+.pid-cell { color: var(--accent); font-weight: 600; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 6px;
+  font-size: 12px; font-family: var(--mono);
+  border: 1px solid var(--border2);
+  background: transparent; color: var(--text);
+  cursor: pointer; transition: all .15s;
+}
+.btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.25); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #0d1117; font-weight: 600; }
+.btn-primary:hover { background: #79c0ff; border-color: #79c0ff; }
+.btn-danger { color: var(--accent3); border-color: transparent; padding: 4px 8px; font-size: 11px; }
+.btn-danger:hover { background: rgba(247,129,102,0.1); }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.output-area { display: none; }
+.section-title {
+  font-size: 11px; font-family: var(--mono); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: 12px; margin-top: 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.gantt-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 16px 12px; }
+#gantt { display: block; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.metric-label { font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px; }
+.metric-val { font-size: 26px; font-weight: 600; font-family: var(--mono); color: var(--accent); }
+.result-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.result-panel table { font-size: 13px; }
+.result-panel th { padding: 10px 14px; background: var(--surface2); }
+.result-panel td { padding: 9px 14px; }
+.result-panel tr:last-child td { border-bottom: none; }
+.algo-tag {
+  display: inline-block;
+  background: rgba(88,166,255,0.12);
+  border: 1px solid rgba(88,166,255,0.25);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-family: var(--mono); color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-icon">⚙</div>
+  <div>
+    <h1>CPU Scheduling Simulator</h1>
+    <p>BCSE498J / CBS1904 · VIT · 2026</p>
+  </div>
+  <span class="badge">v1.0 · Interactive</span>
+</div>
+
+<div class="main">
+  <div class="grid">
+    <!-- LEFT PANEL -->
+    <div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-dot"></span>Configuration</div>
+        <div class="panel-body">
+          <div class="form-row">
+            <label>Scheduling Algorithm</label>
+            <select id="algo" onchange="onAlgoChange()">
+              <option value="fcfs">FCFS — First Come First Serve</option>
+              <option value="sjf">SJF — Shortest Job First</option>
+              <option value="srtf">SRTF — Preemptive SJF</option>
+              <option value="priority">Priority Scheduling</option>
+              <option value="rr">Round Robin (RR)</option>
+            </select>
+          </div>
+          <div class="form-row quantum-row" id="quantum-row">
+            <label>Time Quantum (RR)</label>
+            <input type="number" id="quantum" value="2" min="1" max="20">
+          </div>
+          <p class="prio-note" id="prio-note">↑ Lower number = Higher priority</p>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:1rem">
+        <div class="panel-header"><span class="panel-dot" style="background:var(--accent2)"></span>Process Table</div>
+        <div class="panel-body">
+          <div class="proc-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>PID</th><th>AT</th><th>BT</th>
+                  <th id="prio-th" style="display:none">PR</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="proc-body"></tbody>
+            </table>
+          </div>
+          <div class="btn-group">
+            <button class="btn" onclick="addProcess()">+ Add</button>
+            <button class="btn" onclick="loadExample()">Load Example</button>
+            <button class="btn btn-primary" onclick="runSim()">▶ Run</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div>
+      <div id="placeholder" class="panel" style="height:100%;min-height:300px;display:flex;align-items:center;justify-content:center">
+        <div class="empty-state">
+          <div style="font-size:32px;margin-bottom:12px">⚙</div>
+          <div>Configure processes and click Run</div>
+          <div style="margin-top:6px;color:rgba(125,133,144,0.6)">Gantt chart and metrics will appear here</div>
+        </div>
+      </div>
+
+      <div class="output-area" id="output">
+        <span class="algo-tag" id="algo-label">FCFS</span>
+        <div class="metrics-grid" id="avg-metrics"></div>
+        <div class="section-title">Gantt Chart</div>
+        <div class="legend" id="legend"></div>
+        <div class="gantt-scroll">
+          <svg id="gantt"></svg>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="result-panel">
+          <table>
+            <thead>
+              <tr><th>PID</th><th>Arrival</th><th>Burst</th><th>Finish</th><th>TAT</th><th>WT</th></tr>
+            </thead>
+            <tbody id="result-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let pid = 1;
+const COLORS = ['#58a6ff','#3fb950','#f78166','#d2a8ff','#ffa657','#79c0ff','#56d364','#ff7b72','#bc8cff','#e3b341'];
+
+function onAlgoChange() {
+  const v = document.getElementById('algo').value;
+  document.getElementById('quantum-row').style.display = v === 'rr' ? 'block' : 'none';
+  document.getElementById('prio-note').style.display = v === 'priority' ? 'block' : 'none';
+  document.getElementById('prio-th').style.display = v === 'priority' ? '' : 'none';
+  document.querySelectorAll('.prio-td').forEach(td => td.style.display = v === 'priority' ? '' : 'none');
+}
+
+function addProcess(at = 0, bt = 4, pr = 1) {
+  const tbody = document.getElementById('proc-body');
+  const tr = document.createElement('tr');
+  const id = 'P' + pid++;
+  const isPrio = document.getElementById('algo').value === 'priority';
+  tr.dataset.pid = id;
+  tr.innerHTML = `
+    <td class="pid-cell">${id}</td>
+    <td><input type="number" class="at" value="${at}" min="0"></td>
+    <td><input type="number" class="bt" value="${bt}" min="1"></td>
+    <td class="prio-td" style="display:${isPrio ? '' : 'none'}"><input type="number" class="pr" value="${pr}" min="1"></td>
+    <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function loadExample() {
+  document.getElementById('proc-body').innerHTML = '';
+  pid = 1;
+  [[0,8,3],[1,4,1],[2,9,4],[3,5,2]].forEach(([a,b,p]) => addProcess(a,b,p));
+}
+
+function getProcesses() {
+  return [...document.querySelectorAll('#proc-body tr')].map(tr => ({
+    pid: tr.dataset.pid,
+    at: +tr.querySelector('.at').value,
+    bt: +tr.querySelector('.bt').value,
+    pr: tr.querySelector('.pr') ? +tr.querySelector('.pr').value : 1
+  }));
+}
+
+function fcfs(procs) {
+  const s = [...procs].sort((a,b) => a.at-b.at);
+  const tl = []; let t = 0;
+  s.forEach(p => { if(t<p.at)t=p.at; tl.push({pid:p.pid,start:t,end:t+p.bt}); t+=p.bt; });
+  return tl;
+}
+
+function sjf(procs) {
+  const ps = procs.map(p=>({...p,done:false}));
+  const tl=[]; let t=0,done=0;
+  while(done<ps.length) {
+    const avail=ps.filter(p=>!p.done&&p.at<=t);
+    if(!avail.length){t=Math.min(...ps.filter(p=>!p.done).map(p=>p.at));continue;}
+    avail.sort((a,b)=>a.bt-b.bt||a.at-b.at);
+    const p=avail[0]; tl.push({pid:p.pid,start:t,end:t+p.bt}); t+=p.bt; p.done=true; done++;
+  }
+  return tl;
+}
+
+function srtf(procs) {
+  const ps=procs.map(p=>({...p,rem:p.bt,done:false}));
+  const tl=[]; let t=0,done=0,cur=null,start=0;
+  const maxT=procs.reduce((s,p)=>s+p.bt,0)+Math.max(...procs.map(p=>p.at))+1;
+  while(done<ps.length&&t<=maxT) {
+    const avail=ps.filter(p=>!p.done&&p.at<=t);
+    let next=avail.length?avail.sort((a,b)=>a.rem-b.rem||a.pid.localeCompare(b.pid))[0]:null;
+    if(next&&cur&&cur.pid!==next.pid){if(cur.rem>0)tl.push({pid:cur.pid,start,end:t});cur=next;start=t;}
+    else if(next&&!cur){cur=next;start=t;}
+    if(cur){cur.rem--;if(cur.rem===0){tl.push({pid:cur.pid,start,end:t+1});cur.done=true;done++;cur=null;start=t+1;}}
+    t++;
+  }
+  return tl;
+}
+
+function priority(procs) {
+  const ps=procs.map(p=>({...p,done:false}));
+  const tl=[]; let t=0,done=0;
+  while(done<ps.length) {
+    const avail=ps.filter(p=>!p.done&&p.at<=t);
+    if(!avail.length){t=Math.min(...ps.filter(p=>!p.done).map(p=>p.at));continue;}
+    avail.sort((a,b)=>a.pr-b.pr||a.at-b.at);
+    const p=avail[0]; tl.push({pid:p.pid,start:t,end:t+p.bt}); t+=p.bt; p.done=true; done++;
+  }
+  return tl;
+}
+
+function rr(procs,q) {
+  const ps=procs.map(p=>({...p,rem:p.bt})).sort((a,b)=>a.at-b.at);
+  const tl=[]; let t=0; const queue=[]; const arrived=new Set(); let idx=0;
+  function enq(now){while(idx<ps.length&&ps[idx].at<=now){if(!arrived.has(ps[idx].pid)){arrived.add(ps[idx].pid);queue.push(ps[idx]);}idx++;}}
+  if(ps.length){t=ps[0].at;enq(t);}
+  let safety=0;
+  while(queue.length&&safety++<50000){
+    const p=queue.shift(); if(p.rem<=0)continue;
+    const exec=Math.min(p.rem,q);
+    if(t<p.at)t=p.at;
+    tl.push({pid:p.pid,start:t,end:t+exec}); t+=exec; p.rem-=exec; enq(t);
+    if(p.rem>0)queue.push(p);
+  }
+  return tl;
+}
+
+function merge(tl){
+  if(!tl.length)return tl;
+  const out=[{...tl[0]}];
+  for(let i=1;i<tl.length;i++){
+    const last=out[out.length-1];
+    if(last.pid===tl[i].pid&&last.end===tl[i].start)last.end=tl[i].end;
+    else out.push({...tl[i]});
+  }
+  return out;
+}
+
+function computeStats(procs,tl){
+  return procs.map(p=>{
+    const segs=tl.filter(s=>s.pid===p.pid);
+    const ft=segs.length?Math.max(...segs.map(s=>s.end)):p.at+p.bt;
+    const tat=ft-p.at; const wt=tat-p.bt;
+    return{...p,ft,tat,wt};
+  });
+}
+
+function drawGantt(tl,procs){
+  const svg=document.getElementById('gantt');
+  svg.innerHTML='';
+  if(!tl.length)return;
+  const pidList=[...new Set(procs.map(p=>p.pid))];
+  const colorMap={};
+  pidList.forEach((pid,i)=>colorMap[pid]=COLORS[i%COLORS.length]);
+  const maxT=Math.max(...tl.map(s=>s.end));
+  const scale=Math.max(28,Math.min(52,900/maxT));
+  const W=maxT*scale+60;
+  const H=80;
+  const ROW=34,TOP=10,LABEL=0;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  tl.forEach(seg=>{
+    const x=LABEL+seg.start*scale;
+    const w=Math.max(2,(seg.end-seg.start)*scale-2);
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x);rect.setAttribute('y',TOP);
+    rect.setAttribute('width',w);rect.setAttribute('height',ROW);
+    rect.setAttribute('rx',5);rect.setAttribute('fill',colorMap[seg.pid]||'#58a6ff');
+    rect.setAttribute('opacity','0.9');
+    svg.appendChild(rect);
+    if(w>22){
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',x+w/2);txt.setAttribute('y',TOP+ROW/2+5);
+      txt.setAttribute('text-anchor','middle');txt.setAttribute('fill','#0d1117');
+      txt.setAttribute('font-size','11');txt.setAttribute('font-weight','600');
+      txt.setAttribute('font-family','JetBrains Mono, monospace');
+      txt.textContent=seg.pid;svg.appendChild(txt);
+    }
+  });
+  const ticks=new Set([0,maxT]);
+  tl.forEach(s=>{ticks.add(s.start);ticks.add(s.end);});
+  [...ticks].sort((a,b)=>a-b).forEach(t=>{
+    const x=LABEL+t*scale;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x);line.setAttribute('x2',x);
+    line.setAttribute('y1',TOP+ROW);line.setAttribute('y2',TOP+ROW+10);
+    line.setAttribute('stroke','rgba(255,255,255,0.2)');line.setAttribute('stroke-width','1');
+    svg.appendChild(line);
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',x);lbl.setAttribute('y',TOP+ROW+24);
+    lbl.setAttribute('text-anchor','middle');lbl.setAttribute('fill','#7d8590');
+    lbl.setAttribute('font-size','10');lbl.setAttribute('font-family','JetBrains Mono, monospace');
+    lbl.textContent=t;svg.appendChild(lbl);
+  });
+  document.getElementById('legend').innerHTML=pidList.map((pid,i)=>
+    `<div class="legend-item"><span class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></span>${pid}</div>`
+  ).join('');
+}
+
+function runSim(){
+  const procs=getProcesses();
+  if(!procs.length){alert('Add at least one process.');return;}
+  if(procs.some(p=>p.bt<1)){alert('Burst time must be ≥ 1.');return;}
+  const algo=document.getElementById('algo').value;
+  const q=+document.getElementById('quantum').value||2;
+  const names={'fcfs':'FCFS','sjf':'SJF (Non-Preemptive)','srtf':'SRTF (Preemptive SJF)','priority':'Priority Scheduling','rr':`Round Robin (q=${q})`};
+  let tl=[];
+  if(algo==='fcfs')tl=fcfs(procs);
+  else if(algo==='sjf')tl=sjf(procs);
+  else if(algo==='srtf')tl=srtf(procs);
+  else if(algo==='priority')tl=priority(procs);
+  else tl=rr(procs,q);
+  const merged=merge(tl);
+  const stats=computeStats(procs,tl);
+  const avgTAT=(stats.reduce((s,p)=>s+p.tat,0)/stats.length).toFixed(2);
+  const avgWT=(stats.reduce((s,p)=>s+p.wt,0)/stats.length).toFixed(2);
+  const maxFt=Math.max(...stats.map(p=>p.ft));
+  document.getElementById('algo-label').textContent=names[algo];
+  document.getElementById('avg-metrics').innerHTML=`
+    <div class="metric-card"><div class="metric-label">avg turnaround (TAT)</div><div class="metric-val">${avgTAT}</div></div>
+    <div class="metric-card"><div class="metric-label">avg waiting (WT)</div><div class="metric-val" style="color:var(--accent2)">${avgWT}</div></div>
+    <div class="metric-card"><div class="metric-label">total completion</div><div class="metric-val" style="color:var(--accent4)">${maxFt}</div></div>
+    <div class="metric-card"><div class="metric-label">processes</div><div class="metric-val" style="color:var(--accent3)">${procs.length}</div></div>
+  `;
+  drawGantt(merged,procs);
+  document.getElementById('result-body').innerHTML=stats.map(p=>`
+    <tr>
+      <td style="color:var(--accent);font-family:var(--mono);font-weight:600">${p.pid}</td>
+      <td style="font-family:var(--mono)">${p.at}</td>
+      <td style="font-family:var(--mono)">${p.bt}</td>
+      <td style="font-family:var(--mono)">${p.ft}</td>
+      <td style="font-family:var(--mono);color:var(--accent2)">${p.tat}</td>
+      <td style="font-family:var(--mono);color:var(--accent3)">${p.wt}</td>
+    </tr>`).join('');
+  document.getElementById('placeholder').style.display='none';
+  document.getElementById('output').style.display='block';
+}
+
+loadExample();
+</script>
+</body>
+</html>
